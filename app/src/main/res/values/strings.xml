@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">uploadpdf</string>
+    <string name="internal_storage">Penyimpanan Internal</string>
+</resources>
