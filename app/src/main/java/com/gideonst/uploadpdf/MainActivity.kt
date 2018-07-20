@@ -1,5 +1,6 @@
 package com.gideonst.uploadpdf
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.Context
@@ -19,11 +20,18 @@ import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.Toast
+import com.karumi.dexter.Dexter
+import com.karumi.dexter.MultiplePermissionsReport
+import com.karumi.dexter.PermissionToken
+import com.karumi.dexter.listener.PermissionRequest
+import com.karumi.dexter.listener.multi.MultiplePermissionsListener
+import com.karumi.dexter.listener.single.PermissionListener
 import java.io.File
 import java.util.ArrayList
 import ir.sohreco.androidfilechooser.FileChooser
 import ir.sohreco.androidfilechooser.ExternalStorageNotAvailableException
 import org.apache.commons.lang3.StringUtils
+import java.net.URLDecoder
 
 
 class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserListener {
@@ -36,14 +44,10 @@ class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserLi
     }
 
 
-    val MULTIPLE_PERMISSIONS = 10 // code you want.
     private val REQUEST_CODE = 42
 
-     var fileUtils: FileUtils? = null
+    var fileUtils: FileUtils? = null
 
-    internal var permissions = arrayOf(
-            android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     private lateinit var btnOpen: Button
 
@@ -55,54 +59,39 @@ class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserLi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Dexter.withActivity(this)
+                .withPermissions(
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.MANAGE_DOCUMENTS
+                )
+                .withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                    }
+
+                    override fun onPermissionRationaleShouldBeShown(permissions: MutableList<PermissionRequest>?, token: PermissionToken?) {
+                        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                    }
+
+
+                }).check()
+
+
         btnOpen = findViewById(R.id.btn_upload)
 
+
         btnOpen.setOnClickListener(this)
-        if (checkPermission()) {
-//            showToast("hello")
-        }
+
     }
 
-    private fun checkPermission(): Boolean {
-        var result: Int
-        val listPermissionsNeeded = ArrayList<String>()
-        for (p in permissions) {
-            result = ContextCompat.checkSelfPermission(applicationContext, p)
-            if (result != PackageManager.PERMISSION_GRANTED) {
-                listPermissionsNeeded.add(p)
-            }
-        }
-        if (!listPermissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toTypedArray(), MULTIPLE_PERMISSIONS)
-            return false
-        }
-        return true
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        when (requestCode) {
-            MULTIPLE_PERMISSIONS -> {
-                if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // permissions granted.
-                    Log.d(TAG, "PERMISSION 1")
 
 
-                }
-                if (grantResults.size > 0 && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                    // permissions granted.
-
-                    Log.d(TAG, "PERMISSION 2")
-
-                }
 
 
-            }
-        }
-    }
-
-  /*  fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }*/
+    /*  fun showToast(message: String) {
+          Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+      }*/
 
     private fun openFileExplorer() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
@@ -117,30 +106,37 @@ class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserLi
     }
 
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
 
-            val uri = data!!.getData()
-//            val src = uri.path
 
-            Log.e(TAG, "MY URI " + uri)
-//            Log.e(TAG, "MY SRC " + src)
+    private fun getMyDataResult(data: Intent?) {
+        val uri = data!!.getData()
+
+        val src = uri.path
+
+        val decodedUri = URLDecoder.decode(uri.toString(), "UTF-8")
+        val cleanUri = Uri.parse(decodedUri)
+
+
+        Log.e(TAG, "MY URI " + uri)
+        Log.e(TAG, "MY CLEAN  URI " + cleanUri)
+        Log.e(TAG, "MY SRC " + src)
 //            Log.e(TAG, "MY GET PATH " + FileUtils.getPath(this,uri))
 
 
-            Log.e(TAG, "MY FILE NAME "+getFileName(uri))
-            Log.e(TAG, "MY REAL PATH  "+ getPathFromURI(this,uri))
+        Log.e(TAG, "MY FILE NAME " + getFileName(uri))
+        Log.e(TAG, "MY REAL PATH  " + getPathFromUri(this, cleanUri))
 
-            var realPath = getPathFromURI(this,uri)
-            val realFileName = getFileName(uri)
-            val substr = StringUtils.substringBefore(realPath, "/"+realFileName);
-            Log.e(TAG, "MY PATH WITHOUT FILE NAME  "+ substr)
+
+        var realPath = getPathFromUri(this, cleanUri)
+        val realFileName = getFileName(uri)
+        val substr = StringUtils.substringBefore(realPath, "/" + realFileName);
+        Log.e(TAG, "MY PATH WITHOUT FILE NAME  " + substr)
 
 
 //            val source = File(src)
 //            val filename = getFileName(uri)
 //            val destination = File(Environment.getExternalStorageDirectory().absolutePath + "/CustomFolder/" + filename)
-            val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY)
+        val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY)
 
 
         /*    val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY + filename)
@@ -148,17 +144,16 @@ class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserLi
                 destination.mkdirs()
             }*/
 //            Log.e(TAG, "SOURCE FILE " + source)
-            Log.e(TAG, "DESTINATION  FILE " + destination)
-            Log.e(TAG, "FILE YANG DI KIRIM ADALAH  " + getFile(this,uri))
-            Log.e(TAG, "NAMA DARI FILE YANG AKAN DIKIRIM  " + getFileName(uri))
+        Log.e(TAG, "DESTINATION  FILE " + destination)
+        Log.e(TAG, "FILE YANG DI KIRIM ADALAH  " + getFile(this, uri))
+        Log.e(TAG, "NAMA DARI FILE YANG AKAN DIKIRIM  " + getFileName(uri))
 
-            copyFile(this, substr,getFileName(uri),destination.toString())
+        copyFile(this, substr, getFileName(uri), destination.toString())
 //            copyFile(this, getPathFromURI(this,uri),"",destination.toString())/
 
 //            copy(source,destination)
 
 
-        }
     }
 
     private fun getFileName(uri: Uri?): String {
@@ -184,20 +179,6 @@ class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserLi
         return result!!
     }
 
-    private fun addFileChooserFragment() {
-        val builder = FileChooser.Builder(FileChooser.ChooserType.FILE_CHOOSER,
-                FileChooser.ChooserListener { path -> Toast.makeText(this@MainActivity, path, Toast.LENGTH_SHORT).show() })
-        try {
-            supportFragmentManager.beginTransaction()
-                    .add(R.id.file_chooser_fragment_container_framelayout, builder.build())
-                    .commit()
-        } catch (e: ExternalStorageNotAvailableException) {
-            Toast.makeText(this, "There is no external storage available on this device.",
-                    Toast.LENGTH_SHORT).show()
-            e.printStackTrace()
-        }
-
-    }
 
     override fun onClick(v: View?) {
         if (v != null) {
