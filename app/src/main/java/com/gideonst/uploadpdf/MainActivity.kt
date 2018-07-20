@@ -1,11 +1,18 @@
 package com.gideonst.uploadpdf
 
 import android.content.ActivityNotFoundException
+import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.DocumentsContract.isDocumentUri
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.util.Log
@@ -16,9 +23,10 @@ import java.io.File
 import java.util.ArrayList
 import ir.sohreco.androidfilechooser.FileChooser
 import ir.sohreco.androidfilechooser.ExternalStorageNotAvailableException
+import org.apache.commons.lang3.StringUtils
 
 
-class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.ChooserListener {
+class MainActivity : BaseActivity(), View.OnClickListener, FileChooser.ChooserListener {
     override fun onSelect(path: String?) {
 
 
@@ -31,6 +39,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.Choo
     val MULTIPLE_PERMISSIONS = 10 // code you want.
     private val REQUEST_CODE = 42
 
+     var fileUtils: FileUtils? = null
+
     internal var permissions = arrayOf(
             android.Manifest.permission.READ_EXTERNAL_STORAGE,
             android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -38,7 +48,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.Choo
     private lateinit var btnOpen: Button
 
 
-    private val PDF_DIRECTORY = "/PDF_FOLDER_TESTING"
+    private val PDF_DIRECTORY = "/PDF_FOLDER_TESTING/"
 
     val TAG = MainActivity::class.java.simpleName
 
@@ -46,6 +56,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.Choo
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         btnOpen = findViewById(R.id.btn_upload)
+
         btnOpen.setOnClickListener(this)
         if (checkPermission()) {
 //            showToast("hello")
@@ -110,29 +121,67 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.Choo
         if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
 
             val uri = data!!.getData()
-            val src = uri.path
+//            val src = uri.path
 
             Log.e(TAG, "MY URI " + uri)
-            Log.e(TAG, "MY SRC " + src)
+//            Log.e(TAG, "MY SRC " + src)
 //            Log.e(TAG, "MY GET PATH " + FileUtils.getPath(this,uri))
 
 
-            val source = File(src)
-            val filename = uri.lastPathSegment
+            Log.e(TAG, "MY FILE NAME "+getFileName(uri))
+            Log.e(TAG, "MY REAL PATH  "+ getPathFromURI(this,uri))
+
+            var realPath = getPathFromURI(this,uri)
+            val realFileName = getFileName(uri)
+            val substr = StringUtils.substringBefore(realPath, "/"+realFileName);
+            Log.e(TAG, "MY PATH WITHOUT FILE NAME  "+ substr)
+
+
+//            val source = File(src)
+//            val filename = getFileName(uri)
 //            val destination = File(Environment.getExternalStorageDirectory().absolutePath + "/CustomFolder/" + filename)
+            val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY)
 
 
-            val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY + filename)
+        /*    val destination = File(Environment.getExternalStorageDirectory().absolutePath + PDF_DIRECTORY + filename)
             if (!destination.exists()) {
                 destination.mkdirs()
-            }
-            Log.e(TAG, "SOURCE FILE " + source)
+            }*/
+//            Log.e(TAG, "SOURCE FILE " + source)
             Log.e(TAG, "DESTINATION  FILE " + destination)
+            Log.e(TAG, "FILE YANG DI KIRIM ADALAH  " + getFile(this,uri))
+            Log.e(TAG, "NAMA DARI FILE YANG AKAN DIKIRIM  " + getFileName(uri))
+
+            copyFile(this, substr,getFileName(uri),destination.toString())
+//            copyFile(this, getPathFromURI(this,uri),"",destination.toString())/
 
 //            copy(source,destination)
 
 
         }
+    }
+
+    private fun getFileName(uri: Uri?): String {
+        var result: String? = null
+        if (uri != null) {
+            if (uri.scheme == "content") {
+                val cursor = contentResolver.query(uri, null, null, null, null)
+                try {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+                        Log.d(TAG, "FILE NAME " + result)
+                    }
+                } finally {
+                    cursor?.close()
+                }
+            }
+        }
+        if (result == null) {
+            if (uri != null) {
+                result = uri.lastPathSegment
+            }
+        }
+        return result!!
     }
 
     private fun addFileChooserFragment() {
@@ -159,4 +208,5 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, FileChooser.Choo
             }
         }
     }
+
 }
